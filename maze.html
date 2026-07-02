@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Maze Madness — an endless maze puzzle game</title>
 <meta name="description" content="Maze Madness — an endless maze puzzle game. Dodge walls, earn coins, and unlock skins and backgrounds in the shop. How many mazes can you crawl through?">
 <link rel="canonical" href="https://iamjessklein.github.io/amwt/maze.html">
@@ -41,7 +41,7 @@
   }
 
   #bgFx { position: fixed; inset: 0; overflow: hidden; z-index: -1; }
-  .blob { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(90px); opacity: .35; }
+  .blob { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(90px); opacity: .5; }
   .blob.b1 { background: var(--bg-a); top: -25%; left: -15%; animation: float1 22s ease-in-out infinite; }
   .blob.b2 { background: var(--bg-b); bottom: -30%; right: -15%; animation: float2 26s ease-in-out infinite; }
   .blob.b3 { background: var(--bg-c); top: 25%; left: 35%; animation: float3 30s ease-in-out infinite; }
@@ -225,6 +225,7 @@
     border: none;
     border-radius: 9px;
     cursor: pointer;
+    touch-action: manipulation;
     transition: background .12s ease, transform .08s ease;
   }
   #pad button:active {
@@ -877,11 +878,28 @@
     el.style.background = skin.gradient || skin.color;
   }
 
+  function hexToRgba(hex, alpha) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
+
   function paintBackground() {
     const bg = BACKGROUNDS.find(b => b.id === save.equippedBackground) || BACKGROUNDS[0];
     document.documentElement.style.setProperty('--bg-a', bg.colors[0]);
     document.documentElement.style.setProperty('--bg-b', bg.colors[1]);
     document.documentElement.style.setProperty('--bg-c', bg.colors[2]);
+    // Tint the whole backdrop so the equipped background reads clearly and
+    // matches its shop swatch, instead of hiding in three faint blurred blobs.
+    const bgFx = document.getElementById('bgFx');
+    if (bgFx) {
+      bgFx.style.background = 'linear-gradient(135deg, ' +
+        hexToRgba(bg.colors[0], 0.55) + ', ' +
+        hexToRgba(bg.colors[1], 0.4) + ', ' +
+        hexToRgba(bg.colors[2], 0.55) + ')';
+    }
   }
 
   function renderMaze() {
@@ -1149,10 +1167,16 @@
     init();
   }
 
-  document.getElementById('up').addEventListener('click', () => handleMove('up'));
-  document.getElementById('down').addEventListener('click', () => handleMove('down'));
-  document.getElementById('left').addEventListener('click', () => handleMove('left'));
-  document.getElementById('right').addEventListener('click', () => handleMove('right'));
+  // Fire on pointerdown (not click) so touch input responds instantly instead
+  // of waiting out the mobile browser's ~300ms double-tap delay.
+  function bindPad(id, dir) {
+    const el = document.getElementById(id);
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); handleMove(dir); });
+  }
+  bindPad('up', 'up');
+  bindPad('down', 'down');
+  bindPad('left', 'left');
+  bindPad('right', 'right');
   document.getElementById('restart').addEventListener('click', init);
   document.getElementById('homeBtn').addEventListener('click', showHub);
   document.getElementById('homeFromOver').addEventListener('click', showHub);
@@ -1197,6 +1221,14 @@
 
   window.addEventListener('keydown', (e) => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    // "v" reveals the solution path on demand (requires the Maze Vision upgrade).
+    if (e.key === 'v' || e.key === 'V') {
+      e.preventDefault();
+      if (e.repeat) return;
+      const playing = !gameOver && !modalOpen && !gameScreenEl.classList.contains('hidden');
+      if (playing && save.visionLevel > 0) showPathHint();
+      return;
+    }
     const dir = KEY_MAP[e.key];
     if (!dir) return;
     e.preventDefault();
