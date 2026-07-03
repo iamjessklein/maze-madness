@@ -428,6 +428,21 @@
   .shopCoins { font-size: 14px; color: #ffd23f; font-weight: 700; margin: 2px 0 18px; }
   .shopSectionTitle { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #9a99a6; margin: 18px 0 10px; }
   .itemGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  /* Horizontal draggable slider variant for browsing skins/backgrounds. */
+  .itemSlider {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    cursor: grab;
+  }
+  .itemSlider:active { cursor: grabbing; }
+  .itemSlider .itemCard { flex: 0 0 128px; scroll-snap-align: start; }
+  .itemSlider::-webkit-scrollbar { height: 6px; }
+  .itemSlider::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 3px; }
   .itemCard { background: #1c1c22; border-radius: 12px; padding: 12px; text-align: center; border: 1px solid rgba(255,255,255,.06); }
   .itemCard.equipped { border-color: #ffd23f; }
   .itemSwatch { width: 36px; height: 36px; border-radius: 50%; margin: 0 auto 8px; border: 2px solid rgba(255,255,255,.15); }
@@ -578,9 +593,9 @@
     <div class="shopSectionTitle">Upgrades</div>
     <div class="itemGrid" id="upgradeGrid"></div>
     <div class="shopSectionTitle">Player skins</div>
-    <div class="itemGrid" id="skinGrid"></div>
+    <div class="itemSlider" id="skinGrid"></div>
     <div class="shopSectionTitle" id="bgSectionTitle">Backgrounds</div>
-    <div class="itemGrid" id="bgGrid"></div>
+    <div class="itemSlider" id="bgGrid"></div>
     </div>
   </div>
 </div>
@@ -1458,6 +1473,29 @@
   const endDrag = () => { dragging = false; };
   mazeEl.addEventListener('pointerup', endDrag);
   mazeEl.addEventListener('pointercancel', endDrag);
+
+  // Mouse drag-to-scroll for the shop sliders (touch scrolls natively). A drag
+  // that actually moves is prevented from also firing a card's buy/equip click.
+  function enableDragScroll(el) {
+    let down = false, startX = 0, startLeft = 0, moved = false;
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch') return; // let native touch scrolling handle it
+      down = true; moved = false; startX = e.clientX; startLeft = el.scrollLeft;
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!down) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 4) { moved = true; el.scrollLeft = startLeft - dx; }
+    });
+    const up = () => { down = false; };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointerleave', up);
+    el.addEventListener('click', (e) => {
+      if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; }
+    }, true);
+  }
+  enableDragScroll(document.getElementById('skinGrid'));
+  enableDragScroll(document.getElementById('bgGrid'));
 
   document.getElementById('restart').addEventListener('click', init);
   document.getElementById('homeBtn').addEventListener('click', showHub);
