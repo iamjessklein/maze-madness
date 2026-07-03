@@ -38,6 +38,9 @@
     min-height: 100vh;
     padding: 24px;
     position: relative;
+    /* Transparent so the #bgFx background layer (z-index:-1) shows through;
+       the dark base color comes from <html> above. */
+    background: transparent;
   }
 
   #bgFx { position: fixed; inset: 0; overflow: hidden; z-index: -1; }
