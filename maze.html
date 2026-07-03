@@ -19,7 +19,9 @@
     --bg-b: #a64cff;
     --bg-c: #ff4ca6;
   }
-  * { box-sizing: border-box; }
+  /* touch-action: manipulation app-wide disables double-tap-to-zoom (which
+     iOS Safari does even with user-scalable=no) while still allowing scroll. */
+  * { box-sizing: border-box; touch-action: manipulation; }
   html, body {
     margin: 0;
     height: 100%;
@@ -615,13 +617,18 @@
 
   const UPGRADES = [
     { id: 'lives',  key: 'livesLevel',  icon: '❤️', name: 'Extra Life',  basePrice: 25, growth: 1.7, max: 5, effect: 'max life' },
-    { id: 'income', key: 'incomeLevel', icon: '💰', name: 'Coin Boost',  basePrice: 20, growth: 1.7, max: 5, effect: 'coin per maze' },
+    { id: 'income', key: 'incomeLevel', icon: '💰', name: 'Coin Boost',  basePrice: 20, growth: 1.7, max: Infinity, effect: '×5 coins per maze' },
     { id: 'shield', key: 'shieldLevel', icon: '🛡️', name: 'Shield',      basePrice: 30, growth: 1.8, max: 5, effect: 'wall-hit shield' },
     { id: 'vision', key: 'visionLevel', icon: '👁️', name: 'Maze Vision', basePrice: 35, growth: 1.8, max: 5, effect: 'sec path reveal' },
   ];
 
   function upgradeCost(u, level) {
     return Math.round(u.basePrice * Math.pow(u.growth, level));
+  }
+
+  // Coins awarded per solved maze: 20 base, multiplied by 5 for each Coin Boost level.
+  function coinReward() {
+    return 20 * Math.pow(5, save.incomeLevel);
   }
 
   function defaultSave(name, passcode) {
@@ -1058,7 +1065,7 @@
 
     if (px === gx && py === gy) {
       score += 1;
-      save.coins += 20 + save.incomeLevel;
+      save.coins += coinReward();
       save.lifetimeSolved += 1;
       persist();
       renderScore();
