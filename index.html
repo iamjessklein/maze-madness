@@ -484,7 +484,7 @@
     <div class="coins">🪙 <span id="coins">0</span></div>
     <div class="score"><span>Mazes solved</span> <span id="score">0</span></div>
   </div>
-  <div class="legend"><span><i class="dot"></i>You</span><span><i class="star">★</i>Finish here</span></div>
+  <div class="legend"><span><i class="dot" id="legendDot"></i>You</span><span><i class="star">★</i>Finish here</span></div>
 
   <div id="maze"></div>
 
@@ -1033,6 +1033,30 @@
     }
   }
 
+  // Make the "You" legend swatch match the equipped skin (emoji or color).
+  function updateLegend() {
+    const dot = document.getElementById('legendDot');
+    if (!dot) return;
+    const skin = SKINS.find(s => s.id === save.equippedSkin) || SKINS[0];
+    if (skin.glyph) {
+      dot.textContent = skin.glyph;
+      dot.style.background = 'transparent';
+      dot.style.width = 'auto';
+      dot.style.height = 'auto';
+      dot.style.borderRadius = '0';
+      dot.style.fontStyle = 'normal';
+      dot.style.fontSize = '15px';
+      dot.style.lineHeight = '1';
+    } else {
+      dot.textContent = '';
+      dot.style.background = skin.gradient || skin.color;
+      dot.style.width = '12px';
+      dot.style.height = '12px';
+      dot.style.borderRadius = '50%';
+      dot.style.fontSize = '';
+    }
+  }
+
   function hexToRgba(hex, alpha) {
     const h = hex.replace('#', '');
     const r = parseInt(h.slice(0, 2), 16);
@@ -1099,6 +1123,7 @@
     playerEl.style.boxShadow = '0 0 0 ' + Math.max(2, CELL * 0.1) + 'px rgba(76,76,255,.25)';
     paintPlayer(playerEl);
     mazeEl.appendChild(playerEl);
+    updateLegend();
   }
 
   function movePlayer() {
@@ -1327,6 +1352,7 @@
     if (type === 'skin') {
       const playerEl = document.getElementById('player');
       if (playerEl) paintPlayer(playerEl);
+      updateLegend();
     } else {
       paintBackground();
     }
