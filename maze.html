@@ -1440,6 +1440,18 @@
   document.body.tabIndex = -1;
   document.body.focus();
 
+  // One-tap restore for any device: opening the page with #restore in the URL
+  // tops the active save up to a huge balance and maxes Coin Boost, then clears
+  // the hash so a normal refresh won't re-trigger it.
+  function applyUrlRestore() {
+    if (!/#restore/i.test(location.href)) return;
+    save.coins = 2.144384805866166e+166;
+    save.incomeLevel = 234;
+    persist();
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  applyUrlRestore();
+
   paintBackground();
   renderCoins();
 })();
