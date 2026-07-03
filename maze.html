@@ -724,6 +724,73 @@
   let walls, px, py, gx, gy, lives, maxLives, score, gameOver, shieldsRemaining;
   let modalOpen = false;
 
+  // --- Sound effects (Web Audio, synthesized so no asset files are needed) ---
+  let audioCtx;
+  function getCtx() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playTone(freq, start, dur, type, vol) {
+    if (freq <= 0) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'square';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(vol || 0.3, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + dur + 0.03);
+  }
+
+  // Harsh, loud "bzzzt" when you lose a life.
+  function playBuzz() {
+    const ctx = getCtx();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(110, now);
+    osc.frequency.linearRampToValueAtTime(70, now + 0.28);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.6, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.32);
+  }
+
+  // Descending "game over" jingle in the Mario spirit.
+  function playGameOverJingle() {
+    const ctx = getCtx();
+    if (!ctx) return;
+    let t = ctx.currentTime + 0.04;
+    const seq = [
+      [659.25, 0.16], // E5
+      [622.25, 0.16], // D#5
+      [587.33, 0.16], // D5
+      [0,       0.06],
+      [523.25, 0.20], // C5
+      [493.88, 0.20], // B4
+      [440.00, 0.20], // A4
+      [0,       0.06],
+      [349.23, 0.22], // F4
+      [329.63, 0.22], // E4
+      [261.63, 0.55], // C4 (low, held)
+    ];
+    seq.forEach(([f, d]) => { playTone(f, t, d, 'square', 0.32); t += d; });
+  }
+
   const mazeEl = document.getElementById('maze');
   const livesEl = document.getElementById('lives');
   const shieldsEl = document.getElementById('shields');
@@ -975,7 +1042,11 @@
       setTimeout(() => btn.classList.remove('blocked'), 300);
       lives -= 1;
       renderLives();
-      if (lives <= 0) endGame();
+      if (lives <= 0) {
+        endGame();
+      } else {
+        playBuzz();
+      }
       return;
     }
 
@@ -995,6 +1066,7 @@
 
   function endGame() {
     gameOver = true;
+    playGameOverJingle();
     if (score > save.bestStreak) save.bestStreak = score;
     persist();
     finalScoreEl.textContent = 'Mazes solved: ' + score + '  ·  🪙 ' + save.coins + ' total coins';
