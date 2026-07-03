@@ -156,7 +156,10 @@
     background: #26262c;
     border-radius: 10px;
     box-shadow: 0 18px 50px rgba(0,0,0,.4);
+    touch-action: none;   /* capture drags to move the player instead of scrolling */
+    cursor: grab;
   }
+  #maze:active { cursor: grabbing; }
   .cell {
     position: absolute;
     box-sizing: border-box;
@@ -466,7 +469,7 @@
 
 <div id="gameScreen" class="hidden">
   <h1>Maze Madness</h1>
-  <p class="subtitle">Tap an arrow to move. Walk into a wall and it turns red — you lose a life.</p>
+  <p class="subtitle">Drag across the maze or tap arrows to move. Hit a wall and it turns red — you lose a life.</p>
 
   <div class="topActions">
     <button class="pillBtn" id="homeBtn">🏠 Hub</button>
@@ -620,6 +623,12 @@
     { id: 'checkerboard', name: 'Checkerboard', price: 35, gradient: 'repeating-conic-gradient(#1c1c22 0% 25%, #f2f1f6 0% 50%)' },
     { id: 'cyber',       name: 'Cyber',         price: 45, gradient: 'linear-gradient(135deg, #00f0ff, #ff00e5)' },
     { id: 'rainbow',     name: 'Rainbow',       price: 50, gradient: 'conic-gradient(from 0deg, #ff004c, #ffb400, #2bff00, #00e5ff, #7a00ff, #ff004c)' },
+    // Event-themed skins: the player becomes an emoji (e.g. World Cup football).
+    { id: 'football',    name: 'World Cup ⚽',  price: 30, glyph: '⚽', event: true },
+    { id: 'basketball',  name: 'Hoops 🏀',      price: 25, glyph: '🏀', event: true },
+    { id: 'tennis',      name: 'Tennis 🎾',     price: 25, glyph: '🎾', event: true },
+    { id: 'trophy',      name: 'Champion 🏆',   price: 40, glyph: '🏆', event: true },
+    { id: 'pumpkin',     name: 'Spooky 🎃',     price: 25, glyph: '🎃', event: true },
   ];
 
   const BACKGROUNDS = [
@@ -1004,7 +1013,24 @@
   function paintPlayer(el) {
     const skin = SKINS.find(s => s.id === save.equippedSkin) || SKINS[0];
     el.classList.toggle('skin-rainbow', skin.id === 'rainbow');
-    el.style.background = skin.gradient || skin.color;
+    if (skin.glyph) {
+      // Emoji skin: render the glyph instead of a colored circle.
+      const size = parseFloat(el.style.width) || (CELL * 0.4);
+      el.textContent = skin.glyph;
+      el.style.background = 'transparent';
+      el.style.boxShadow = 'none';
+      el.style.display = 'flex';
+      el.style.alignItems = 'center';
+      el.style.justifyContent = 'center';
+      el.style.fontSize = (size * 1.5) + 'px';
+      el.style.lineHeight = '1';
+    } else {
+      el.textContent = '';
+      el.style.display = '';
+      el.style.fontSize = '';
+      el.style.background = skin.gradient || skin.color;
+      el.style.boxShadow = '0 0 0 ' + Math.max(2, CELL * 0.1) + 'px rgba(76,76,255,.25)';
+    }
   }
 
   function hexToRgba(hex, alpha) {
@@ -1251,8 +1277,11 @@
       const state = itemButtonState(owned, equipped);
       const card = document.createElement('div');
       card.className = 'itemCard' + (equipped ? ' equipped' : '');
+      const swatch = skin.glyph
+        ? '<div class="itemSwatch upgradeIcon" style="font-size:22px">' + skin.glyph + '</div>'
+        : '<div class="itemSwatch" style="background:' + (skin.gradient || skin.color) + '"></div>';
       card.innerHTML =
-        '<div class="itemSwatch" style="background:' + (skin.gradient || skin.color) + '"></div>' +
+        swatch +
         '<div class="itemName">' + skin.name + '</div>' +
         '<div class="itemPrice">' + (skin.price === 0 ? 'Free' : '🪙 ' + skin.price) + '</div>' +
         '<button class="itemBtn ' + state.cls + '"' + ((!owned && save.coins < skin.price) ? ' disabled' : '') + '>' + state.label + '</button>';
@@ -1376,6 +1405,34 @@
   bindPad('down', 'down');
   bindPad('left', 'left');
   bindPad('right', 'right');
+
+  // Slider-style navigation: drag across the maze to move. Every STEP_PX of
+  // travel in a direction advances the player one cell, so a continuous drag
+  // slides through the maze like scrubbing a slider.
+  const DRAG_STEP_PX = 26;
+  let dragging = false, dragX = 0, dragY = 0;
+  mazeEl.addEventListener('pointerdown', (e) => {
+    dragging = true; dragX = e.clientX; dragY = e.clientY;
+    if (mazeEl.setPointerCapture) { try { mazeEl.setPointerCapture(e.pointerId); } catch (_) {} }
+  });
+  mazeEl.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    let dx = e.clientX - dragX, dy = e.clientY - dragY;
+    while (Math.abs(dx) >= DRAG_STEP_PX || Math.abs(dy) >= DRAG_STEP_PX) {
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        handleMove(dx > 0 ? 'right' : 'left');
+        dx += (dx > 0 ? -DRAG_STEP_PX : DRAG_STEP_PX);
+      } else {
+        handleMove(dy > 0 ? 'down' : 'up');
+        dy += (dy > 0 ? -DRAG_STEP_PX : DRAG_STEP_PX);
+      }
+    }
+    dragX = e.clientX - dx; dragY = e.clientY - dy; // keep leftover sub-step travel
+  });
+  const endDrag = () => { dragging = false; };
+  mazeEl.addEventListener('pointerup', endDrag);
+  mazeEl.addEventListener('pointercancel', endDrag);
+
   document.getElementById('restart').addEventListener('click', init);
   document.getElementById('homeBtn').addEventListener('click', showHub);
   document.getElementById('skipBtn').addEventListener('click', skipLevel);
