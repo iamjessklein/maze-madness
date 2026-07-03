@@ -67,7 +67,7 @@
     text-align: center;
   }
 
-  .topActions { display: flex; gap: 10px; margin-bottom: 18px; }
+  .topActions { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; justify-content: center; }
   .pillBtn {
     font-family: inherit;
     font-size: 13px;
@@ -435,6 +435,16 @@
   .itemBtn.owned { background: #3ddc84; color: #0a2e1a; }
   .itemBtn.equipped { background: #ffd23f; color: #3a2c00; cursor: default; }
   .itemBtn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Keep everything inside phone-width screens: tighter padding, smaller
+     controls, and never let a row force horizontal overflow. */
+  @media (max-width: 400px) {
+    body { padding: 12px; }
+    h1 { font-size: 20px; }
+    .topActions { gap: 8px; }
+    .hud { gap: 12px; }
+    #pad { grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px); margin-top: 18px; }
+  }
 </style>
 </head>
 <body>
@@ -942,11 +952,22 @@
     scoreEl.textContent = score;
   }
 
+  // Compact display for large coin counts so they never widen the HUD off-screen.
+  // Exact below 100k, then K / M / B / T. (save.coins stays the exact number.)
+  function formatCoins(n) {
+    if (n < 100000) return String(n);
+    const units = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+    for (const [div, suffix] of units) {
+      if (n >= div) return (n / div).toFixed(n / div >= 100 ? 0 : 1).replace(/\.0$/, '') + suffix;
+    }
+    return String(n);
+  }
+
   function renderCoins() {
-    document.getElementById('coins').textContent = save.coins;
-    document.getElementById('hubCoins').textContent = save.coins;
+    document.getElementById('coins').textContent = formatCoins(save.coins);
+    document.getElementById('hubCoins').textContent = formatCoins(save.coins);
     const shopCoinsEl = document.getElementById('shopCoins');
-    if (shopCoinsEl) shopCoinsEl.textContent = save.coins;
+    if (shopCoinsEl) shopCoinsEl.textContent = formatCoins(save.coins);
   }
 
   function paintPlayer(el) {
@@ -1079,7 +1100,7 @@
     playGameOverJingle();
     if (score > save.bestStreak) save.bestStreak = score;
     persist();
-    finalScoreEl.textContent = 'Mazes solved: ' + score + '  ·  🪙 ' + save.coins + ' total coins';
+    finalScoreEl.textContent = 'Mazes solved: ' + score + '  ·  🪙 ' + formatCoins(save.coins) + ' total coins';
     overlayEl.classList.add('show');
   }
 
@@ -1101,7 +1122,7 @@
       card.innerHTML =
         '<div class="itemSwatch upgradeIcon">' + u.icon + '</div>' +
         '<div class="itemName">' + u.name + '</div>' +
-        '<div class="itemPrice">' + (maxed ? 'MAX LEVEL' : 'Lv ' + level + ' → ' + (level + 1) + ' · 🪙 ' + cost) + '</div>' +
+        '<div class="itemPrice">' + (maxed ? 'MAX LEVEL' : 'Lv ' + level + ' → ' + (level + 1) + ' · 🪙 ' + formatCoins(cost)) + '</div>' +
         '<button class="itemBtn"' + ((maxed || save.coins < cost) ? ' disabled' : '') + '>' + (maxed ? 'Maxed' : 'Upgrade') + '</button>';
       if (!maxed) {
         card.querySelector('button').addEventListener('click', () => buyUpgrade(u));
@@ -1188,7 +1209,7 @@
 
   function fillProfile() {
     document.getElementById('nameInput').value = save.name;
-    document.getElementById('statCoins').textContent = save.coins;
+    document.getElementById('statCoins').textContent = formatCoins(save.coins);
     document.getElementById('statLifetime').textContent = save.lifetimeSolved;
     document.getElementById('statBest').textContent = save.bestStreak;
     document.getElementById('statGames').textContent = save.gamesPlayed;
@@ -1211,7 +1232,7 @@
       const row = document.createElement('div');
       row.className = 'accountRow' + (acc.id === activeId ? ' active' : '');
       row.innerHTML =
-        '<span><span class="accName">' + acc.name + '</span><span class="accCoins">🪙 ' + coins + '</span></span>' +
+        '<span><span class="accName">' + acc.name + '</span><span class="accCoins">🪙 ' + formatCoins(coins) + '</span></span>' +
         (acc.id === activeId ? '<span class="activeBadge">Active</span>' : '<button class="switchBtn">Switch</button>');
       if (acc.id !== activeId) {
         row.querySelector('button').addEventListener('click', () => {
