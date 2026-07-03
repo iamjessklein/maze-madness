@@ -469,6 +469,7 @@
 
   <div class="topActions">
     <button class="pillBtn" id="homeBtn">🏠 Hub</button>
+    <button class="pillBtn" id="skipBtn">⏭️ Skip</button>
     <button class="pillBtn" id="openProfile">👤 Profile</button>
     <button class="pillBtn" id="openShop">🛍️ Shop</button>
   </div>
@@ -568,6 +569,8 @@
     </div>
     <div class="modalBody">
     <div class="shopCoins">🪙 <span id="shopCoins">0</span> coins</div>
+    <div class="shopSectionTitle">Coin Packs</div>
+    <div class="itemGrid" id="coinPackGrid"></div>
     <div class="shopSectionTitle">Upgrades</div>
     <div class="itemGrid" id="upgradeGrid"></div>
     <div class="shopSectionTitle">Player skins</div>
@@ -637,6 +640,14 @@
     { id: 'income', key: 'incomeLevel', icon: '💰', name: 'Coin Boost',  basePrice: 20, growth: 1.7, max: Infinity, effect: '×5 coins per maze' },
     { id: 'shield', key: 'shieldLevel', icon: '🛡️', name: 'Shield',      basePrice: 30, growth: 1.8, max: 5, effect: 'wall-hit shield' },
     { id: 'vision', key: 'visionLevel', icon: '👁️', name: 'Maze Vision', basePrice: 35, growth: 1.8, max: 5, effect: 'sec path reveal' },
+  ];
+
+  // Instant coin top-up packs (free grants).
+  const COIN_PACKS = [
+    { label: '+1K',   icon: '🪙', amount: 1000 },
+    { label: '+10K',  icon: '💰', amount: 10000 },
+    { label: '+100K', icon: '💵', amount: 100000 },
+    { label: '+1M',   icon: '💎', amount: 1000000 },
   ];
 
   function upgradeCost(u, level) {
@@ -1115,6 +1126,14 @@
     }
   }
 
+  // Skip the current maze and advance a level (grows difficulty, no coin reward).
+  function skipLevel() {
+    if (gameOver || modalOpen || gameScreenEl.classList.contains('hidden')) return;
+    score += 1;
+    renderScore();
+    newMaze();
+  }
+
   function endGame() {
     gameOver = true;
     playGameOverJingle();
@@ -1163,8 +1182,33 @@
     buildUpgradeGrid();
   }
 
+  function buildCoinPackGrid() {
+    const grid = document.getElementById('coinPackGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    COIN_PACKS.forEach(pack => {
+      const card = document.createElement('div');
+      card.className = 'itemCard';
+      card.innerHTML =
+        '<div class="itemSwatch upgradeIcon">' + pack.icon + '</div>' +
+        '<div class="itemName">' + pack.label + '</div>' +
+        '<div class="itemPrice">' + formatCoins(pack.amount) + ' coins</div>' +
+        '<button class="itemBtn owned">Claim</button>';
+      card.querySelector('button').addEventListener('click', () => addCoins(pack.amount));
+      grid.appendChild(card);
+    });
+  }
+
+  function addCoins(amount) {
+    save.coins += amount;
+    persist();
+    renderCoins();
+    buildShopGrids();
+  }
+
   function buildShopGrids() {
     renderCoins();
+    buildCoinPackGrid();
     buildUpgradeGrid();
 
     const skinGrid = document.getElementById('skinGrid');
@@ -1302,6 +1346,7 @@
   bindPad('right', 'right');
   document.getElementById('restart').addEventListener('click', init);
   document.getElementById('homeBtn').addEventListener('click', showHub);
+  document.getElementById('skipBtn').addEventListener('click', skipLevel);
   document.getElementById('homeFromOver').addEventListener('click', showHub);
   document.getElementById('hubPlayBtn').addEventListener('click', showGame);
 
