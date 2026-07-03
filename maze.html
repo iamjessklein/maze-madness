@@ -580,8 +580,15 @@
 
 <script>
 (function () {
-  const SIZE = 7;
-  const CELL = 40;
+  const BASE_SIZE = 7;
+  const BOARD_PX = 280;   // on-screen board size stays constant as the grid grows
+  const MAX_SIZE = 21;    // cap so cells never get unplayably tiny
+  // Grid grows by 2 every 10 solved mazes: 7x7 -> 9x9 -> 11x11 ... (capped).
+  function difficultyFor(solved) {
+    return Math.min(MAX_SIZE, BASE_SIZE + 2 * Math.floor(solved / 10));
+  }
+  let SIZE = BASE_SIZE;
+  let CELL = BOARD_PX / SIZE;
   const LEGACY_SAVE_KEY = 'mazeMadnessSave';
   const ACCOUNTS_KEY = 'mazeMadnessAccounts';
   const ACTIVE_KEY = 'mazeMadnessActiveAccount';
@@ -818,8 +825,8 @@
   const overlayEl = document.getElementById('overlay');
   const finalScoreEl = document.getElementById('finalScore');
 
-  mazeEl.style.width = (SIZE * CELL) + 'px';
-  mazeEl.style.height = (SIZE * CELL) + 'px';
+  mazeEl.style.width = BOARD_PX + 'px';
+  mazeEl.style.height = BOARD_PX + 'px';
 
   function generateMaze() {
     const cells = Array.from({ length: SIZE }, () =>
@@ -873,6 +880,9 @@
   }
 
   function newMaze() {
+    // Scale the grid up with progress; cells shrink to keep the board size fixed.
+    SIZE = difficultyFor(score);
+    CELL = BOARD_PX / SIZE;
     walls = generateMaze();
     px = 0; py = 0;
     gx = SIZE - 1; gy = SIZE - 1;
@@ -1028,6 +1038,7 @@
     goalEl.style.top = (gy * CELL) + 'px';
     goalEl.style.width = CELL + 'px';
     goalEl.style.height = CELL + 'px';
+    goalEl.style.fontSize = (CELL * 0.5) + 'px';
     goalEl.textContent = '★';
     mazeEl.appendChild(goalEl);
 
@@ -1038,6 +1049,7 @@
     playerEl.style.height = psize + 'px';
     playerEl.style.left = (px * CELL + (CELL - psize) / 2) + 'px';
     playerEl.style.top = (py * CELL + (CELL - psize) / 2) + 'px';
+    playerEl.style.boxShadow = '0 0 0 ' + Math.max(2, CELL * 0.1) + 'px rgba(76,76,255,.25)';
     paintPlayer(playerEl);
     mazeEl.appendChild(playerEl);
   }
