@@ -84,6 +84,7 @@
     transition: background .15s ease, transform .08s ease;
   }
   .pillBtn:active { transform: scale(0.96); }
+  .pillBtn.deny { animation: shake .3s ease; }
 
   .hidden { display: none !important; }
   #hubScreen, #gameScreen {
@@ -883,6 +884,7 @@
     save.gamesPlayed += 1;
     persist();
     overlayEl.classList.remove('show');
+    resetSkip();
     renderLives();
     renderShields();
     renderScore();
@@ -1126,12 +1128,42 @@
     }
   }
 
-  // Skip the current maze and advance a level (grows difficulty, no coin reward).
+  // Skip the current maze and advance a level. No cooldown — instead it costs
+  // coins, and the price doubles with each skip in a run (resets on new game).
+  const SKIP_BASE_COST = 25;
+  let skipsUsed = 0;
+
+  function skipCost() {
+    return SKIP_BASE_COST * Math.pow(2, skipsUsed);
+  }
+
+  function updateSkipLabel() {
+    const btn = document.getElementById('skipBtn');
+    if (btn) btn.textContent = '⏭️ Skip 🪙' + formatCoins(skipCost());
+  }
+
+  function resetSkip() {
+    skipsUsed = 0;
+    updateSkipLabel();
+  }
+
   function skipLevel() {
     if (gameOver || modalOpen || gameScreenEl.classList.contains('hidden')) return;
+    const cost = skipCost();
+    const btn = document.getElementById('skipBtn');
+    if (save.coins < cost) {
+      btn.classList.add('deny');
+      setTimeout(() => btn.classList.remove('deny'), 300);
+      return;
+    }
+    save.coins -= cost;
+    skipsUsed += 1;
     score += 1;
+    persist();
     renderScore();
+    renderCoins();
     newMaze();
+    updateSkipLabel();
   }
 
   function endGame() {
