@@ -1653,7 +1653,7 @@
   // the hash so a normal refresh won't re-trigger it.
   function applyUrlRestore() {
     if (!/#restore/i.test(location.href)) return;
-    save.coins = 2.144384805866166e+166;
+    save.coins = Number.MAX_VALUE;   // totally maxed
     save.incomeLevel = 234;
     persist();
     history.replaceState(null, '', location.pathname + location.search);
