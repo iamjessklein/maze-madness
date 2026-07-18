@@ -199,6 +199,18 @@
     background: radial-gradient(circle, rgba(255,210,63,.25) 0%, rgba(255,210,63,0) 70%);
     z-index: -1;
   }
+  .coinPickup {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    filter: drop-shadow(0 0 4px rgba(255,210,63,.6));
+    animation: coinBob 1.2s ease-in-out infinite;
+  }
+  @keyframes coinBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+  @keyframes coinPop { to { transform: scale(1.9); opacity: 0; } }
+  .coinPickup.pop { animation: coinPop .22s ease forwards; }
   .legend {
     display: flex;
     align-items: center;
@@ -786,6 +798,8 @@
   let save = loadSave();
   let walls, px, py, gx, gy, lives, maxLives, score, gameOver, shieldsRemaining;
   let modalOpen = false;
+  let mazeCoins = new Set();          // "x,y" of collectible bonus coins in the current maze
+  const COIN_PICKUP_VALUE = 10;
 
   // --- Sound effects (Web Audio, synthesized so no asset files are needed) ---
   let audioCtx;
@@ -854,6 +868,15 @@
     seq.forEach(([f, d]) => { playTone(f, t, d, 'square', 0.32); t += d; });
   }
 
+  // Bright two-note "coin" blip when grabbing a collectible.
+  function playCoin() {
+    const ctx = getCtx();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    playTone(988, now, 0.07, 'square', 0.28);        // B5
+    playTone(1319, now + 0.07, 0.16, 'square', 0.28); // E6
+  }
+
   const mazeEl = document.getElementById('maze');
   const livesEl = document.getElementById('lives');
   const shieldsEl = document.getElementById('shields');
@@ -916,6 +939,34 @@
     newMaze();
   }
 
+  // Scatter bonus coins in random cells (never on the start or the goal).
+  function placeCoins() {
+    mazeCoins = new Set();
+    const count = Math.max(3, Math.round(SIZE * 0.7));
+    const avail = [];
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if ((x === 0 && y === 0) || (x === gx && y === gy)) continue;
+        avail.push(x + ',' + y);
+      }
+    }
+    for (let i = 0; i < count && avail.length; i++) {
+      mazeCoins.add(avail.splice(Math.floor(Math.random() * avail.length), 1)[0]);
+    }
+  }
+
+  function collectCoinAt(x, y) {
+    const k = x + ',' + y;
+    if (!mazeCoins.has(k)) return;
+    mazeCoins.delete(k);
+    save.coins += COIN_PICKUP_VALUE;
+    persist();
+    renderCoins();
+    playCoin();
+    const el = mazeEl.querySelector('.coinPickup[data-xy="' + k + '"]');
+    if (el) { el.classList.add('pop'); setTimeout(() => el.remove(), 220); }
+  }
+
   function newMaze() {
     // Scale the grid up with progress; cells shrink to keep the board size fixed.
     SIZE = difficultyFor(score);
@@ -923,6 +974,7 @@
     walls = generateMaze();
     px = 0; py = 0;
     gx = SIZE - 1; gy = SIZE - 1;
+    placeCoins();
     renderMaze();
     if (save.visionLevel > 0) showPathHint();
   }
@@ -1128,6 +1180,20 @@
     goalEl.textContent = '★';
     mazeEl.appendChild(goalEl);
 
+    mazeCoins.forEach(k => {
+      const [cxs, cys] = k.split(',');
+      const coinEl = document.createElement('div');
+      coinEl.className = 'coinPickup';
+      coinEl.dataset.xy = k;
+      coinEl.style.left = (cxs * CELL) + 'px';
+      coinEl.style.top = (cys * CELL) + 'px';
+      coinEl.style.width = CELL + 'px';
+      coinEl.style.height = CELL + 'px';
+      coinEl.style.fontSize = (CELL * 0.5) + 'px';
+      coinEl.textContent = '🪙';
+      mazeEl.appendChild(coinEl);
+    });
+
     const playerEl = document.createElement('div');
     playerEl.id = 'player';
     const psize = CELL * 0.4;
@@ -1182,6 +1248,7 @@
 
     px = nx; py = ny;
     movePlayer();
+    collectCoinAt(px, py);
 
     if (px === gx && py === gy) {
       score += 1;
