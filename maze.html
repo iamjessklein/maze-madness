@@ -1628,13 +1628,20 @@
     mgBody.querySelector('.mgBack').addEventListener('click', mgShowMenu);
   }
 
-  // ---- Personality Test ----
+  // ---- Personality Test ---- (5 random questions are drawn from this pool each play)
   const MG_QUIZ = [
     { q: 'A maze appears. Your move?', a: [['Sprint straight in 🏃', 30], ['Study it first 🧐', 20], ['Find a shortcut 😏', 40], ['Panic a little 😅', 10]] },
     { q: 'Favorite power-up?', a: [['Extra life ❤️', 20], ['Coin boost 💰', 40], ['Shield 🛡️', 25], ['Maze vision 👁️', 30]] },
     { q: 'You hit a wall. You feel…', a: [['Rage 😤', 15], ['Zen 🧘', 35], ['Determined 💪', 30], ['Confused 🤔', 20]] },
     { q: 'Pick a treasure:', a: [['Gold 🪙', 40], ['Trophy 🏆', 35], ['Crown 👑', 30], ['Pizza 🍕', 25]] },
     { q: 'Your maze spirit animal?', a: [['Cheetah 🐆', 35], ['Owl 🦉', 30], ['Fox 🦊', 40], ['Sloth 🦥', 15]] },
+    { q: 'Pick a snack for the run:', a: [['Coffee ☕', 35], ['Energy drink ⚡', 40], ['Water 💧', 20], ['Cake 🍰', 25]] },
+    { q: 'A shortcut looks risky. You…', a: [['Take it! 😎', 40], ['Nope, too scary 🙅', 15], ['Weigh the odds 🤓', 30], ['Flip a coin 🪙', 25]] },
+    { q: 'Your battle cry?', a: [['LET\'S GOOO 📣', 35], ['…quiet focus 🤫', 25], ['For glory! ⚔️', 40], ['uh oh 😬', 10]] },
+    { q: 'Pick a maze theme:', a: [['Neon city 🌃', 40], ['Cozy forest 🌲', 25], ['Space station 🚀', 35], ['Haunted house 🏚️', 20]] },
+    { q: 'How do you celebrate a win?', a: [['Victory dance 🕺', 35], ['Humble nod 🙂', 25], ['Scream of joy 🎉', 40], ['Onto the next 🏃', 30]] },
+    { q: 'Your ideal teammate is…', a: [['A speed demon 🏎️', 35], ['A big brain 🧠', 40], ['A lucky charm 🍀', 30], ['A snack supplier 🍫', 20]] },
+    { q: 'Pick a vibe:', a: [['Chaotic 🌀', 40], ['Chill 🧊', 25], ['Focused 🎯', 35], ['Sleepy 😴', 10]] },
   ];
   const MG_PERSONALITIES = [
     [0, 'The Wanderer 🧭 — you take it slow and enjoy the journey.'],
@@ -1642,10 +1649,21 @@
     [150, 'The Speedrunner ⚡ — chaos incarnate, and it works.'],
     [175, 'The Maze Legend 👑 — born for this.'],
   ];
+  function mgShuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  const MG_QUIZ_LEN = 5;
   function mgPersonality() {
+    // Draw a fresh random set of questions each play, with shuffled answers.
+    const quiz = mgShuffle(MG_QUIZ).slice(0, MG_QUIZ_LEN).map(item => ({ q: item.q, a: mgShuffle(item.a) }));
     let idx = 0, total = 0;
     function renderQ() {
-      if (idx >= MG_QUIZ.length) {
+      if (idx >= quiz.length) {
         let title = MG_PERSONALITIES[0][1];
         MG_PERSONALITIES.forEach(p => { if (total >= p[0]) title = p[1]; });
         mgAward(total);
@@ -1656,9 +1674,9 @@
         mgBody.querySelector('#quizAgain').addEventListener('click', mgPersonality);
         return;
       }
-      const item = MG_QUIZ[idx];
+      const item = quiz[idx];
       mgWithBack(
-        '<div class="quizProgress">Question ' + (idx + 1) + ' of ' + MG_QUIZ.length + ' · 🪙 ' + total + '</div>' +
+        '<div class="quizProgress">Question ' + (idx + 1) + ' of ' + quiz.length + ' · 🪙 ' + total + '</div>' +
         '<div class="quizQ">' + item.q + '</div>' +
         '<div class="quizAnswers">' + item.a.map((ans, i) =>
           '<button class="quizAns" data-i="' + i + '">' + ans[0] + '</button>').join('') + '</div>',
@@ -1680,14 +1698,15 @@
   function mgWheel() {
     const seg = 360 / MG_WHEEL.length;
     const grad = MG_WHEEL.map((s, i) => s.c + ' ' + (i * seg) + 'deg ' + ((i + 1) * seg) + 'deg').join(', ');
+    // Labels live INSIDE the wheel so they rotate together with the segments.
     const labels = MG_WHEEL.map((s, i) => {
       const ang = i * seg + seg / 2;
       return '<span style="transform: rotate(' + ang + 'deg) translate(0, -96px) rotate(90deg)">' + s.v + '</span>';
     }).join('');
     mgWithBack(
       '<div class="wheelWrap"><div class="wheelPointer">🔻</div>' +
-      '<div class="wheel" id="wheelEl" style="background: conic-gradient(' + grad + ')"></div>' +
-      '<div class="wheelLabels">' + labels + '</div></div>' +
+      '<div class="wheel" id="wheelEl" style="background: conic-gradient(' + grad + ')">' +
+      '<div class="wheelLabels">' + labels + '</div></div></div>' +
       '<div class="mgReward" id="wheelReward">Spin to win!</div>' +
       '<button class="mgBtn" id="spinBtn">🎡 SPIN</button>', 'Spin the Wheel');
     const wheel = mgBody.querySelector('#wheelEl');
@@ -1696,13 +1715,15 @@
     btn.addEventListener('click', () => {
       btn.disabled = true;
       mgBody.querySelector('#wheelReward').textContent = '…';
-      const winIdx = Math.floor(Math.random() * MG_WHEEL.length);
-      // pointer at top (0deg). Land the winning segment center under the pointer.
-      const target = 360 * 5 - (winIdx * seg + seg / 2);
-      rotation = target;
+      // Always add a fixed number of full turns (same speed/feel every spin)
+      // plus a random landing angle; the prize is whatever the pointer ends on.
+      rotation += 360 * 6 + Math.random() * 360;
       wheel.style.transform = 'rotate(' + rotation + 'deg)';
       mgTimers.push(setTimeout(() => {
-        const prize = MG_WHEEL[winIdx].v;
+        const finalAngle = ((rotation % 360) + 360) % 360;
+        // Segment under the top pointer after the wheel rotated clockwise.
+        const idxUnderPointer = Math.floor(((360 - finalAngle) % 360) / seg) % MG_WHEEL.length;
+        const prize = MG_WHEEL[idxUnderPointer].v;
         mgAward(prize);
         mgBody.querySelector('#wheelReward').textContent = prize > 0 ? 'You won 🪙 ' + prize + '!' : 'Aw, nothing! Try again';
         btn.disabled = false;
