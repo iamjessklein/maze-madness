@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <title>Maze Madness — an endless maze puzzle game</title>
 <meta name="description" content="Maze Madness — an endless maze puzzle game. Dodge walls, earn coins, and unlock skins and backgrounds in the shop. How many mazes can you crawl through?">
 <link rel="canonical" href="https://iamjessklein.github.io/amwt/maze.html">
@@ -26,7 +29,7 @@
     margin: 0;
     height: 100%;
     background: #1c1c22;
-    font-family: 'Space Grotesk', 'Hanken Grotesk', -apple-system, sans-serif;
+    font-family: ui-monospace, 'Cascadia Mono', 'Courier New', monospace;
     color: #f2f1f6;
     -webkit-tap-highlight-color: transparent;
     -webkit-user-select: none;
@@ -46,6 +49,15 @@
   }
 
   #bgFx { position: fixed; inset: 0; overflow: hidden; z-index: -1; }
+  /* Subtle CRT scanlines for an 8-bit / arcade feel. */
+  #crt {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 200;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0, rgba(0,0,0,.16) 1px, transparent 1px, transparent 3px);
+    opacity: .55;
+  }
   .blob { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(90px); opacity: .5; }
   .blob.b1 { background: var(--bg-a); top: -25%; left: -15%; animation: float1 22s ease-in-out infinite; }
   .blob.b2 { background: var(--bg-b); bottom: -30%; right: -15%; animation: float2 26s ease-in-out infinite; }
@@ -55,10 +67,13 @@
   @keyframes float3 { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-8%,6%) scale(1.15); } }
 
   h1 {
-    margin: 0 0 4px;
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+    font-family: 'Press Start 2P', ui-monospace, monospace;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+    text-shadow: 2px 2px 0 rgba(0,0,0,.6);
   }
   .subtitle {
     margin: 0 0 16px;
@@ -154,10 +169,11 @@
   #maze {
     position: relative;
     background: #26262c;
-    border-radius: 10px;
-    box-shadow: 0 18px 50px rgba(0,0,0,.4);
+    border-radius: 2px;
+    box-shadow: 0 8px 0 rgba(0,0,0,.45), 0 0 0 3px #0e0e12;   /* hard pixel-style shadow */
     touch-action: none;   /* capture drags to move the player instead of scrolling */
     cursor: grab;
+    image-rendering: pixelated;
   }
   #maze:active { cursor: grabbing; }
   .cell {
@@ -220,13 +236,13 @@
     color: #9a99a6;
   }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .legend .dot { width: 12px; height: 12px; border-radius: 50%; background: #4c4cff; display: inline-block; }
+  .legend .dot { width: 12px; height: 12px; border-radius: 2px; background: #4c4cff; display: inline-block; }
   .legend .star { color: #ffd23f; font-size: 14px; }
   #player {
     position: absolute;
-    border-radius: 50%;
-    box-shadow: 0 0 0 4px rgba(76,76,255,.25);
-    transition: top .12s ease, left .12s ease;
+    border-radius: 2px;   /* blocky 8-bit sprite instead of a smooth circle */
+    box-shadow: 0 0 0 2px #0e0e12;
+    transition: top .09s steps(3), left .09s steps(3);   /* stepped, snappy movement */
   }
   #player.skin-rainbow { animation: spin 3s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -284,8 +300,11 @@
   }
   #overlay.show { display: flex; }
   #overlay h2 {
-    font-size: 30px;
-    margin: 0 0 8px;
+    font-family: 'Press Start 2P', ui-monospace, monospace;
+    font-size: 22px;
+    line-height: 1.4;
+    margin: 0 0 16px;
+    text-shadow: 3px 3px 0 rgba(0,0,0,.6);
   }
   #overlay p {
     color: #9a99a6;
@@ -481,6 +500,7 @@
 <body>
 
 <div id="bgFx"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div id="crt"></div>
 
 <div id="hubScreen">
   <h1>Maze Madness</h1>
@@ -1096,7 +1116,7 @@
       el.style.display = '';
       el.style.fontSize = '';
       el.style.background = skin.gradient || skin.color;
-      el.style.boxShadow = '0 0 0 ' + Math.max(2, CELL * 0.1) + 'px rgba(76,76,255,.25)';
+      el.style.boxShadow = '0 0 0 2px #0e0e12';
     }
   }
 
@@ -1119,7 +1139,7 @@
       dot.style.background = skin.gradient || skin.color;
       dot.style.width = '12px';
       dot.style.height = '12px';
-      dot.style.borderRadius = '50%';
+      dot.style.borderRadius = '2px';
       dot.style.fontSize = '';
     }
   }
