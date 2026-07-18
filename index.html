@@ -360,7 +360,15 @@
   .modalBody {
     padding: 4px 26px 26px;
     overflow-y: auto;
+    min-height: 0;                    /* let the flex child shrink so it scrolls instead of clipping */
+    flex: 1 1 auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
   }
+  .modalBody::-webkit-scrollbar { width: 8px; }
+  .modalBody::-webkit-scrollbar-thumb { background: rgba(255,255,255,.22); border-radius: 4px; }
+  .modalBody::-webkit-scrollbar-track { background: transparent; }
   .modalClose {
     flex-shrink: 0;
     background: #33333b;
