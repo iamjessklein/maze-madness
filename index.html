@@ -227,6 +227,22 @@
   @keyframes coinBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
   @keyframes coinPop { to { transform: scale(1.9); opacity: 0; } }
   .coinPickup.pop { animation: coinPop .22s ease forwards; }
+  .coinPickup.mysteryBox { animation: coinBob 1.2s ease-in-out infinite, boxWiggle 2.2s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(168,85,247,.7)); }
+  @keyframes boxWiggle { 0%,100% { rotate: -6deg; } 50% { rotate: 6deg; } }
+
+  /* Surprise elements: confetti, toast, party mode */
+  .confetti { position: fixed; top: -30px; z-index: 300; pointer-events: none; will-change: transform; animation: confettiFall linear forwards; }
+  @keyframes confettiFall { to { transform: translateY(110vh) rotate(540deg); opacity: 0; } }
+  #toast {
+    position: fixed; bottom: 34px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: #33333b; color: #f2f1f6; padding: 12px 20px; border-radius: 100px;
+    font-family: inherit; font-weight: 700; font-size: 14px; z-index: 300; opacity: 0;
+    transition: opacity .25s ease, transform .25s ease; pointer-events: none; max-width: 90vw;
+    text-align: center; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  :root.party #bgFx { animation: partyHue .5s linear infinite; }
+  @keyframes partyHue { to { filter: hue-rotate(360deg); } }
   .legend {
     display: flex;
     align-items: center;
@@ -893,8 +909,9 @@
   let save = loadSave();
   let walls, px, py, gx, gy, lives, maxLives, score, gameOver, shieldsRemaining;
   let modalOpen = false;
-  let mazeCoins = new Set();          // "x,y" of collectible bonus coins in the current maze
+  let mazeCoins = new Map();          // "x,y" -> pickup type ('coin' | 'gem' | 'box')
   const COIN_PICKUP_VALUE = 10;
+  const GEM_PICKUP_VALUE = 100;
 
   // --- Sound effects (Web Audio, synthesized so no asset files are needed) ---
   let audioCtx;
@@ -1036,7 +1053,7 @@
 
   // Scatter bonus coins in random cells (never on the start or the goal).
   function placeCoins() {
-    mazeCoins = new Set();
+    mazeCoins = new Map();
     const count = Math.max(3, Math.round(SIZE * 0.7));
     const avail = [];
     for (let y = 0; y < SIZE; y++) {
@@ -1046,20 +1063,95 @@
       }
     }
     for (let i = 0; i < count && avail.length; i++) {
-      mazeCoins.add(avail.splice(Math.floor(Math.random() * avail.length), 1)[0]);
+      const k = avail.splice(Math.floor(Math.random() * avail.length), 1)[0];
+      // SURPRISE #2: a coin occasionally becomes a rare jackpot gem.
+      mazeCoins.set(k, Math.random() < 0.12 ? 'gem' : 'coin');
+    }
+    // SURPRISE #1: a mystery box sometimes appears.
+    if (avail.length && Math.random() < 0.22) {
+      mazeCoins.set(avail.splice(Math.floor(Math.random() * avail.length), 1)[0], 'box');
     }
   }
 
   function collectCoinAt(x, y) {
     const k = x + ',' + y;
     if (!mazeCoins.has(k)) return;
+    const type = mazeCoins.get(k);
     mazeCoins.delete(k);
-    save.coins += COIN_PICKUP_VALUE;
-    persist();
-    renderCoins();
-    playCoin();
     const el = mazeEl.querySelector('.coinPickup[data-xy="' + k + '"]');
     if (el) { el.classList.add('pop'); setTimeout(() => el.remove(), 220); }
+    if (type === 'box') { openMysteryBox(); return; }
+    if (type === 'gem') {
+      save.coins += GEM_PICKUP_VALUE;
+      persist(); renderCoins(); playCoin();
+      burstConfetti(14); showToast('💎 Jackpot! +' + GEM_PICKUP_VALUE);
+      return;
+    }
+    save.coins += COIN_PICKUP_VALUE;
+    persist(); renderCoins(); playCoin();
+  }
+
+  // ---- Surprise system ----
+  function burstConfetti(count) {
+    const emojis = ['🎉', '✨', '🎊', '⭐', '💫', '🪙'];
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'confetti';
+      p.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      p.style.left = (Math.random() * 100) + 'vw';
+      p.style.fontSize = (12 + Math.random() * 18) + 'px';
+      p.style.animationDuration = (1.2 + Math.random() * 1.3) + 's';
+      p.style.animationDelay = (Math.random() * 0.3) + 's';
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 3200);
+    }
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    let t = document.getElementById('toast');
+    if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  const PRAISES = ['Nice moves! 😎', 'Smooth! 🎯', 'Maze master! 🧠', 'Too easy? 😏', 'Keep going! 🔥', 'Slick! ✨', 'Unstoppable! 💪'];
+  function randomPraise() { return PRAISES[Math.floor(Math.random() * PRAISES.length)]; }
+
+  // SURPRISE #1: mystery box gives a random reward.
+  function openMysteryBox() {
+    playCoin();
+    const surprises = [
+      () => { const a = 50 + Math.floor(Math.random() * 450); save.coins += a; showToast('🎁 Surprise! +' + a + ' coins'); burstConfetti(16); },
+      () => {
+        const locked = SKINS.filter(s => !save.ownedSkins.includes(s.id));
+        if (locked.length) { const s = locked[Math.floor(Math.random() * locked.length)]; save.ownedSkins.push(s.id); showToast('🎁 Unlocked skin: ' + s.name + '!'); }
+        else { save.coins += 150; showToast('🎁 All skins owned → +150 coins'); }
+        burstConfetti(16);
+      },
+      () => { save.coins += 25; showToast("🎁 Empty?! ...kidding 😜 +25"); burstConfetti(10); },
+      () => { save.coins += 300; showToast('🎁 COIN BOMB! +300'); burstConfetti(28); },
+    ];
+    surprises[Math.floor(Math.random() * surprises.length)]();
+    persist(); renderCoins();
+  }
+
+  // SURPRISE #5: tap the title 5x for party mode.
+  let titleTaps = 0, titleTapTimer;
+  function onTitleTap() {
+    titleTaps += 1;
+    clearTimeout(titleTapTimer);
+    titleTapTimer = setTimeout(() => { titleTaps = 0; }, 1500);
+    if (titleTaps >= 5) { titleTaps = 0; partyMode(); }
+  }
+  function partyMode() {
+    showToast('🥳 PARTY MODE! +1000 🎉');
+    burstConfetti(60);
+    save.coins += 1000; persist(); renderCoins();
+    document.documentElement.classList.add('party');
+    setTimeout(() => document.documentElement.classList.remove('party'), 3200);
   }
 
   function newMaze() {
@@ -1275,17 +1367,17 @@
     goalEl.textContent = '★';
     mazeEl.appendChild(goalEl);
 
-    mazeCoins.forEach(k => {
+    mazeCoins.forEach((type, k) => {
       const [cxs, cys] = k.split(',');
       const coinEl = document.createElement('div');
-      coinEl.className = 'coinPickup';
+      coinEl.className = 'coinPickup' + (type === 'box' ? ' mysteryBox' : '');
       coinEl.dataset.xy = k;
       coinEl.style.left = (cxs * CELL) + 'px';
       coinEl.style.top = (cys * CELL) + 'px';
       coinEl.style.width = CELL + 'px';
       coinEl.style.height = CELL + 'px';
       coinEl.style.fontSize = (CELL * 0.5) + 'px';
-      coinEl.textContent = '🪙';
+      coinEl.textContent = type === 'gem' ? '💎' : type === 'box' ? '🎁' : '🪙';
       mazeEl.appendChild(coinEl);
     });
 
@@ -1352,6 +1444,9 @@
       persist();
       renderScore();
       renderCoins();
+      // SURPRISE #3 & #4: confetti every 5th solve, otherwise an occasional toast.
+      if (score % 5 === 0) { burstConfetti(24); showToast('🔥 ' + score + ' mazes! On fire!'); }
+      else if (Math.random() < 0.3) { showToast(randomPraise()); }
       setTimeout(newMaze, 200);
     }
   }
@@ -1989,6 +2084,12 @@
 
   document.body.tabIndex = -1;
   document.body.focus();
+
+  // SURPRISE #5: secret party mode — tap the title 5 times quickly.
+  document.querySelectorAll('h1').forEach(h => {
+    h.style.cursor = 'pointer';
+    h.addEventListener('click', onTitleTap);
+  });
 
   // One-tap restore for any device: opening the page with #restore in the URL
   // tops the active save up to a huge balance and maxes Coin Boost, then clears
